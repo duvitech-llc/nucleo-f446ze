@@ -1,0 +1,42 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug (OpenOCD)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "executable": "${workspaceFolder}/build/Debug/nucleo-f446ze.elf",
+
+            "servertype": "openocd",
+            "gdbPath": "arm-none-eabi-gdb",
+
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+
+            "runToEntryPoint": "main",
+            "svdFile": "STM32F446.svd",
+            "preLaunchTask": "CMake: Build (Debug)",
+            "postDebugTask": "Kill OpenOCD"
+        },
+        {
+            "name": "Attach (OpenOCD)",
+            "type": "cortex-debug",
+            "request": "attach",
+            "executable": "${workspaceFolder}/build/Debug/nucleo-f446ze.elf",
+
+            "servertype": "openocd",
+            "gdbPath": "arm-none-eabi-gdb",
+
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+
+            "svdFile": "STM32F446.svd",
+            "preLaunchTask": "CMake: Build (Debug)",
+            "postDebugTask": "Kill OpenOCD"
+        }
+    ]
+}
