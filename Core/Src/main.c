@@ -57,6 +57,7 @@ DMA_HandleTypeDef hdma_usart3_tx;
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
+static volatile uint8_t tim9_sample_flag = 0;
 
 /* USER CODE END PV */
 
@@ -127,8 +128,17 @@ int main(void)
 
   if(optics_init() != HAL_OK) Error_Handler();
 
+  optics_clearBuffer_byMask(0x0f);
 
-  optics_clearBuffer_byMask(0x03);
+  /* Set initial laser powers and start the free-running SCAN. */
+  if(optics_startLaser_byMask(0x01, val1) != HAL_OK) Error_Handler();
+  if(optics_startLaser_byMask(0x02, val2) != HAL_OK) Error_Handler();
+  if(optics_adcStart(0x03) != HAL_OK) Error_Handler();
+
+  /* TIM9 paces the per-sample reads (period configured in MX_TIM9_Init). */
+  HAL_TIM_Base_Start_IT(&htim9);
+
+  uint32_t last_dump_ms = HAL_GetTick();
 
   /* USER CODE END 2 */
 
@@ -139,52 +149,59 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-    
-    if(optics_startLaser_byMask(0x01, val1) != HAL_OK) Error_Handler();
-    if(optics_startLaser_byMask(0x02, val2) != HAL_OK) Error_Handler();
 
-    /* Clear buffers before each scan cycle */
-    optics_clearBuffer_byMask(0x03);
+    /* TIM9 tick: read one fresh sample per channel into the per-channel buffers. */
+    if (tim9_sample_flag) {
+      tim9_sample_flag = 0;
+      (void)optics_adcReadSamples(0);
+    }
 
-    /* Trigger one SCAN cycle (CH0 + CH1 on device 0, one-shot standby) */
-    optics_adcStart(0x03);
-    val1 += 10;
-    val2 -= 10;
-    if(val1>100) val1 = 0;
-    if(val2<1) val2 = 100;
+    /* Every 500 ms: dump captured samples and roll the buffers. */
+    if ((HAL_GetTick() - last_dump_ms) >= 200u) {
+      last_dump_ms = HAL_GetTick();
 
-    /* Read scan results — optics_adcReadSamples polls and halts the chip itself. */
-    optics_adcReadSamples(0);
+      HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 
-    /* Now stop the ADC */
-    optics_adcStop(0x03);
-
-    {
       uint8_t *buf = NULL;
       uint16_t buf_len = 0;
 
+      /* MCP3462 in single-ended mode produces SIGNED 16-bit codes:
+       *   -32768 = -VREF, 0 = 0V (AGND), +32767 = +VREF
+       * VREF on this board is 3.3 V (REFIN+ tied to 3V3, REFIN- to AGND). */
+      const int32_t vref_mV = 3300;
+
       if (optics_getBuffer_byMask(0x01, &buf, &buf_len) == HAL_OK) {
         uint16_t sample_count = buf_len / 2;
-        printf("Optics[0x01] %u samples:\r\n", sample_count);
+        printf("Optics[0x01] %u samples (laser=%u):\r\n", sample_count, val1);
         for (uint16_t i = 0; i < sample_count; i++) {
-          uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
-          printf("  [%u] = %u (0x%04X)\r\n", i, sample, sample);
+          int16_t sample = (int16_t)(((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1]);
+          int32_t mv = ((int32_t)sample * vref_mV) / 32768;
+          printf("  [%u] = %6d (0x%04X)  %5ld mV\r\n",
+                 i, sample, (uint16_t)sample, (long)mv);
         }
       }
 
       if (optics_getBuffer_byMask(0x02, &buf, &buf_len) == HAL_OK) {
         uint16_t sample_count = buf_len / 2;
-        printf("Optics[0x02] %u samples:\r\n", sample_count);
+        printf("Optics[0x02] %u samples (laser=%u):\r\n", sample_count, val2);
         for (uint16_t i = 0; i < sample_count; i++) {
-          uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
-          printf("  [%u] = %u (0x%04X)\r\n", i, sample, sample);
+          int16_t sample = (int16_t)(((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1]);
+          int32_t mv = ((int32_t)sample * vref_mV) / 32768;
+          printf("  [%u] = %6d (0x%04X)  %5ld mV\r\n",
+                 i, sample, (uint16_t)sample, (long)mv);
         }
       }
+
+      /* Reset buffers for the next 500 ms window. */
+      optics_clearBuffer_byMask(0x03);
+
+      /* Step the laser powers. */
+      val1 += 10; if (val1 > 100) val1 = 0;
+      val2 -= 10; if (val2 < 1)   val2 = 100;
+      (void)optics_startLaser_byMask(0x01, val1);
+      (void)optics_startLaser_byMask(0x02, val2);
     }
 
-    HAL_Delay(1000);
-    
   }
   /* USER CODE END 3 */
 }
@@ -560,7 +577,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
   /* USER CODE BEGIN Callback 1 */
   if (htim->Instance == TIM9) {
-	  /* Polled scan mode: readings are done in the main loop */
+	  /* Defer the SPI work to the main loop. */
+	  tim9_sample_flag = 1;
   }
 
   /* USER CODE END Callback 1 */

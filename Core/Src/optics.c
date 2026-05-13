@@ -156,7 +156,7 @@ static HAL_StatusTypeDef initialize_optic_device(int optic_index) {
 		.timer_clocks = 0    // no extra delay between SCAN cycles
 	};
 
-	st = MCP3462_ConfigScan(&dev->adc_handle, MCP3462_OSR_32, MCP3462_GAIN_1, MCP3462_CONV_CONT, &scan_cfg);
+	st = MCP3462_ConfigScan(&dev->adc_handle, MCP3462_OSR_32, MCP3462_GAIN_1, MCP3462_CONV_1SHOT_STBY, &scan_cfg);
     if (st != HAL_OK) {
     	return st;
     }
@@ -246,10 +246,14 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
     uint8_t ch_id;
     int32_t code32;
 
-	/* In CONTINUOUS SCAN mode the chip emits one sample per enabled channel
-	 * per cycle, in order from MSB scan-bit down to LSB. We poll until we have
-	 * captured one fresh sample for each logical channel (or time out), then
-	 * halt the chip via FC_STANDBY so it stops streaming. */
+	/* 1-shot SCAN: kick off a fresh scan cycle for this device, then poll
+	 * until we've captured one sample for each enabled channel. The chip
+	 * auto-returns to STANDBY at the end of the scan (CONV_1SHOT_STBY),
+	 * so there is no race against a free-running converter overwriting
+	 * the ADCDATA latch. */
+	st = MCP3462_FastCommand(&dev->adc_handle, MCP3462_FC_CONV_START);
+	if (st != HAL_OK) return st;
+
 	const uint8_t expected = dev->channel_count;
 	const int max_poll = 200;   /* ~200 * 200 us = 40 ms total budget */
 
@@ -265,8 +269,6 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 			continue;
 		}
 		if (st != HAL_OK) {
-			/* halt before returning */
-			(void)MCP3462_FastCommand(&dev->adc_handle, MCP3462_FC_STANDBY);
 			return st;
 		}
 
@@ -288,9 +290,6 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 			continue;
 		}
 
-		printf("  ch: %d (logical %d) value: 0x%04X\r\n",
-		       ch_id, logical_ch, (uint16_t)code32);
-
 		uint16_t code16 = (uint16_t)code32;
 		if (dev->dataPtr[logical_ch] + 2 <= ADC_UART_BUFFER_SIZE) {
 			dev->adcSamples[logical_ch][dev->dataPtr[logical_ch]++] = (uint8_t)(code16 >> 8);
@@ -300,15 +299,7 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 		got_count++;
 	}
 
-	if (got_count != expected) {
-		printf("  scan: captured %u/%u channels (mask=0x%08lX)\r\n",
-		       got_count, expected, (unsigned long)captured_mask);
-	}
-
-	/* Halt the streaming so the chip doesn't keep converting in the background. */
-	(void)MCP3462_FastCommand(&dev->adc_handle, MCP3462_FC_STANDBY);
-
-	return HAL_OK;
+	return (got_count == expected) ? HAL_OK : HAL_TIMEOUT;
 }
 
 int optics_getDeviceCount(void) {
