@@ -165,19 +165,12 @@ int main(void)
       uint8_t *buf = NULL;
       uint16_t buf_len = 0;
 
-      /* MCP3462 in single-ended mode produces SIGNED 16-bit codes:
-       *   -32768 = -VREF, 0 = 0V (AGND), +32767 = +VREF
-       * VREF on this board is 3.3 V (REFIN+ tied to 3V3, REFIN- to AGND). */
-      const int32_t vref_mV = 3300;
-
       if (optics_getBuffer_byMask(0x01, &buf, &buf_len) == HAL_OK) {
         uint16_t sample_count = buf_len / 2;
         printf("Optics[0x01] %u samples (laser=%u):\r\n", sample_count, val1);
         for (uint16_t i = 0; i < sample_count; i++) {
-          int16_t sample = (int16_t)(((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1]);
-          int32_t mv = ((int32_t)sample * vref_mV) / 32768;
-          printf("  [%u] = %6d (0x%04X)  %5ld mV\r\n",
-                 i, sample, (uint16_t)sample, (long)mv);
+          uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
+          printf("  [%u] = %u (0x%04X)\r\n", i, sample, sample);
         }
       }
 
@@ -185,10 +178,8 @@ int main(void)
         uint16_t sample_count = buf_len / 2;
         printf("Optics[0x02] %u samples (laser=%u):\r\n", sample_count, val2);
         for (uint16_t i = 0; i < sample_count; i++) {
-          int16_t sample = (int16_t)(((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1]);
-          int32_t mv = ((int32_t)sample * vref_mV) / 32768;
-          printf("  [%u] = %6d (0x%04X)  %5ld mV\r\n",
-                 i, sample, (uint16_t)sample, (long)mv);
+          uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
+          printf("  [%u] = %u (0x%04X)\r\n", i, sample, sample);
         }
       }
 
