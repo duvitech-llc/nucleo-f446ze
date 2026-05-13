@@ -133,7 +133,8 @@ int main(void)
   /* Set initial laser powers and start the free-running SCAN. */
   if(optics_startLaser_byMask(0x01, val1) != HAL_OK) Error_Handler();
   if(optics_startLaser_byMask(0x02, val2) != HAL_OK) Error_Handler();
-  if(optics_adcStart(0x03) != HAL_OK) Error_Handler();
+  /* ADC mask is per raw chip channel: CH0 = 0x01, CH2 = 0x04 -> 0x05 */
+  if(optics_adcStart(0x05) != HAL_OK) Error_Handler();
 
   /* TIM9 paces the per-sample reads (period configured in MX_TIM9_Init). */
   HAL_TIM_Base_Start_IT(&htim9);
@@ -169,7 +170,7 @@ int main(void)
       }
       printf("\r\n");
 
-      if (optics_getBuffer_byMask(0x02, &buf, &buf_len) == HAL_OK) {
+      if (optics_getBuffer_byMask(0x04, &buf, &buf_len) == HAL_OK) {
         uint16_t sample_count = buf_len / 2;
         printf("Optics[0] ch %d samples %u (laser=%u):\r\n", 2, sample_count, val2);
         for (uint16_t i = 0; i < sample_count; i++) {
@@ -179,8 +180,8 @@ int main(void)
       }
       printf("\r\n\r\n");
 
-      /* Reset buffers for the next 500 ms window. */
-      optics_clearBuffer_byMask(0x03);
+      /* Reset buffers for the next window: clear chip channels 0 and 2. */
+      optics_clearBuffer_byMask(0x05);
 
       /* Step the laser powers. */
       val1 += 10; if (val1 > 100) val1 = 0;

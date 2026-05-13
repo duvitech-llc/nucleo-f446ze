@@ -257,9 +257,16 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 	const uint8_t expected = dev->channel_count;
 	const int max_poll = 200;   /* ~200 * 200 us = 40 ms total budget */
 
-	uint32_t captured_mask = 0;     /* bit i set when channels[i] captured */
-	uint32_t want_mask = (expected >= 32) ? 0xFFFFFFFFu
-	                                       : ((1u << expected) - 1u);
+	/* captured_mask / want_mask are indexed by the RAW MCP3462 channel id
+	 * (CH0 = bit 0, CH1 = bit 1, ... CH7 = bit 7). This matches the
+	 * convention used by optics_getBuffer_byMask() / optics_clearBuffer_byMask(),
+	 * so a host-side mask of 0x05 means "chip channels 0 and 2". */
+	uint32_t want_mask = 0;
+	for (uint8_t k = 0; k < expected; ++k) {
+		/* dev->channels[k] is already (1u << raw_ch) — OR them together. */
+		want_mask |= (uint32_t)dev->channels[k];
+	}
+	uint32_t captured_mask = 0;
 	uint8_t  got_count = 0;
 
 	for (int i = 0; i < max_poll && captured_mask != want_mask; i++) {
@@ -272,28 +279,26 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 			return st;
 		}
 
-		/* Map raw chip CH_ID (scan-bit position in the SCAN register) back
-		 * to the LOGICAL channel index used by the host (the position in
-		 * dev->channels[]). */
-		uint8_t logical_ch = 0xFF;
-		for (uint8_t k = 0; k < dev->channel_count; ++k) {
-			if (dev->channels[k] == (1u << ch_id)) { logical_ch = k; break; }
-		}
-
-		/* Skip if we don't recognise the channel or already captured it. */
-		if (logical_ch >= MAX_ADC_CHANNELS) {
+		/* ch_id is the raw MCP3462 channel ID (0..7). Reject anything that
+		 * isn't part of the configured scan, and skip duplicates within
+		 * this scan cycle. */
+		if (ch_id >= MAX_ADC_CHANNELS) {
 			continue;
 		}
-		if (captured_mask & (1u << logical_ch)) {
+		uint32_t ch_bit = (1u << ch_id);
+		if ((want_mask & ch_bit) == 0u) {
+			continue;
+		}
+		if (captured_mask & ch_bit) {
 			continue;
 		}
 
 		uint16_t code16 = (uint16_t)code32;
-		if (dev->dataPtr[logical_ch] + 2 <= ADC_UART_BUFFER_SIZE) {
-			dev->adcSamples[logical_ch][dev->dataPtr[logical_ch]++] = (uint8_t)(code16 >> 8);
-			dev->adcSamples[logical_ch][dev->dataPtr[logical_ch]++] = (uint8_t)(code16 & 0xFF);
+		if (dev->dataPtr[ch_id] + 2 <= ADC_UART_BUFFER_SIZE) {
+			dev->adcSamples[ch_id][dev->dataPtr[ch_id]++] = (uint8_t)(code16 >> 8);
+			dev->adcSamples[ch_id][dev->dataPtr[ch_id]++] = (uint8_t)(code16 & 0xFF);
 		}
-		captured_mask |= (1u << logical_ch);
+		captured_mask |= ch_bit;
 		got_count++;
 	}
 
