@@ -282,11 +282,9 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 
 		/* Skip if we don't recognise the channel or already captured it. */
 		if (logical_ch >= MAX_ADC_CHANNELS) {
-			delay_us(200);
 			continue;
 		}
 		if (captured_mask & (1u << logical_ch)) {
-			delay_us(200);
 			continue;
 		}
 

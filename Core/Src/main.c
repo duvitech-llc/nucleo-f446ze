@@ -150,14 +150,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    /* TIM9 tick: read one fresh sample per channel into the per-channel buffers. */
-    if (tim9_sample_flag) {
-      tim9_sample_flag = 0;
-      (void)optics_adcReadSamples(0);
-    }
-
     /* Every 500 ms: dump captured samples and roll the buffers. */
-    if ((HAL_GetTick() - last_dump_ms) >= 200u) {
+    if ((HAL_GetTick() - last_dump_ms) >= 100u) {
       last_dump_ms = HAL_GetTick();
 
       HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
@@ -167,21 +161,23 @@ int main(void)
 
       if (optics_getBuffer_byMask(0x01, &buf, &buf_len) == HAL_OK) {
         uint16_t sample_count = buf_len / 2;
-        printf("Optics[0x01] %u samples (laser=%u):\r\n", sample_count, val1);
+        printf("Optics[0] ch %d samples %u (laser=%u):\r\n", 0, sample_count, val1);
         for (uint16_t i = 0; i < sample_count; i++) {
           uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
-          printf("  [%u] = %u (0x%04X)\r\n", i, sample, sample);
+          printf(" (0x%04X) ", sample);
         }
       }
+      printf("\r\n");
 
       if (optics_getBuffer_byMask(0x02, &buf, &buf_len) == HAL_OK) {
         uint16_t sample_count = buf_len / 2;
-        printf("Optics[0x02] %u samples (laser=%u):\r\n", sample_count, val2);
+        printf("Optics[0] ch %d samples %u (laser=%u):\r\n", 2, sample_count, val2);
         for (uint16_t i = 0; i < sample_count; i++) {
           uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
-          printf("  [%u] = %u (0x%04X)\r\n", i, sample, sample);
+          printf(" (0x%04X) ", sample);
         }
       }
+      printf("\r\n\r\n");
 
       /* Reset buffers for the next 500 ms window. */
       optics_clearBuffer_byMask(0x03);
@@ -569,7 +565,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 1 */
   if (htim->Instance == TIM9) {
 	  /* Defer the SPI work to the main loop. */
-	  tim9_sample_flag = 1;
+    (void)optics_adcReadSamples(0);
   }
 
   /* USER CODE END Callback 1 */
