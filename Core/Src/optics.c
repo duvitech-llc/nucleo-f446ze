@@ -272,7 +272,7 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 	for (int i = 0; i < max_poll && captured_mask != want_mask; i++) {
 		st = MCP3462_ReadScanSample(&dev->adc_handle, &ch_id, &code32);
 		if (st == HAL_BUSY) {
-			delay_us(200);
+			delay_us(50);
 			continue;
 		}
 		if (st != HAL_OK) {
