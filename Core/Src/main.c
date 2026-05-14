@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -29,7 +30,11 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define TRACE1_HIGH()   (TRACE1_GPIO_Port->BSRR = TRACE1_Pin)
+#define TRACE1_LOW()    (TRACE1_GPIO_Port->BSRR = (TRACE1_Pin << 16U))
 
+#define TRACE2_HIGH()   (TRACE2_GPIO_Port->BSRR = TRACE2_Pin)
+#define TRACE2_LOW()    (TRACE2_GPIO_Port->BSRR = (TRACE2_Pin << 16U))
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -56,9 +61,23 @@ DMA_HandleTypeDef hdma_usart3_tx;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 static volatile uint8_t tim9_sample_flag = 0;
 
+/* Definitions for opticsTask */
+osThreadId_t opticsTaskHandle;
+const osThreadAttr_t opticsTask_attributes = {
+  .name = "opticsTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,7 +90,10 @@ static void MX_SPI1_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_CRC_Init(void);
 static void MX_TIM9_Init(void);
+void StartDefaultTask(void *argument);
+
 /* USER CODE BEGIN PFP */
+void StartOpticsTask(void *argument);
 
 /* USER CODE END PFP */
 
@@ -126,22 +148,44 @@ int main(void)
   printf("Nucleo Demo\r\n");
   printf("CPU Clock Frequency: %lu MHz\r\n\r\n", HAL_RCC_GetSysClockFreq() / 1000000);
 
-  if(optics_init() != HAL_OK) Error_Handler();
-
-  optics_clearBuffer_byMask(0x0f);
-
-  /* Set initial laser powers and start the free-running SCAN. */
-  if(optics_startLaser_byMask(0x01, val1) != HAL_OK) Error_Handler();
-  if(optics_startLaser_byMask(0x02, val2) != HAL_OK) Error_Handler();
-  /* ADC mask is per raw chip channel: CH0 = 0x01, CH2 = 0x04 -> 0x05 */
-  if(optics_adcStart(0x05) != HAL_OK) Error_Handler();
-
-  /* TIM9 paces the per-sample reads (period configured in MX_TIM9_Init). */
-  HAL_TIM_Base_Start_IT(&htim9);
-
-  uint32_t last_dump_ms = HAL_GetTick();
-
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  opticsTaskHandle = osThreadNew(StartOpticsTask, NULL, &opticsTask_attributes);
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -452,10 +496,10 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Stream1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
   /* DMA1_Stream3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
 
 }
@@ -477,8 +521,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_SET);
@@ -487,7 +531,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOG, TRACE1_Pin|USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(TRACE2_GPIO_Port, TRACE2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(DAC_CS_GPIO_Port, DAC_CS_Pin, GPIO_PIN_SET);
@@ -512,6 +559,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : TRACE1_Pin */
+  GPIO_InitStruct.Pin = TRACE1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(TRACE1_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : USB_PowerSwitchOn_Pin */
   GPIO_InitStruct.Pin = USB_PowerSwitchOn_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -524,6 +578,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USB_OverCurrent_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TRACE2_Pin */
+  GPIO_InitStruct.Pin = TRACE2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(TRACE2_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -544,7 +605,116 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
   }
 }
 
+void StartOpticsTask(void *argument)
+{
+  uint16_t val1 = 0;
+  uint16_t val2 = 100;
+  uint16_t req_mask = 0x05; /* ADC channels to capture: CH0 and CH2. */
+
+  if(optics_init() != HAL_OK) Error_Handler();
+
+
+  optics_clearBuffer_byMask(0x0f);
+
+  /* Set initial laser powers and start the free-running SCAN. */
+  if(optics_startLaser_byMask(0x01, val1) != HAL_OK) Error_Handler();
+  if(optics_startLaser_byMask(0x02, val2) != HAL_OK) Error_Handler();
+  /* ADC mask is per raw chip channel: CH0 = 0x01, CH2 = 0x04 -> 0x05 */
+  optics_clearBuffer_byMask(req_mask);
+  optics_adcStart(req_mask);
+
+  if (optics_get_active_optics_mask() != 0 && (htim9.Instance->CR1 & TIM_CR1_CEN) == 0)
+  {
+    HAL_TIM_Base_Start_IT(&htim9);
+  }
+
+  uint32_t last_dump_ms = HAL_GetTick();
+
+  /* Infinite loop */
+  for(;;)
+  {
+    /* Yield to the scheduler so logging/idle/lower-prio tasks can run.
+     * Without this the bare for(;;) busy-loops, starving the UART DMA
+     * pump and stretching the effective dump period well past 100 ms. */
+    osDelay(1);
+
+    /* Every 100 ms: dump captured samples and roll the buffers. */
+    if ((HAL_GetTick() - last_dump_ms) >= 100u) {
+      last_dump_ms += 100u;  /* fixed cadence; don't drift with work time */
+
+      uint8_t *buf = NULL;
+      uint16_t buf_len = 0;
+
+      optics_adcStop(req_mask);
+      if (optics_get_active_optics_mask() == 0)
+      {
+        HAL_TIM_Base_Stop_IT(&htim9);
+      }
+      
+      if (optics_getBuffer_byMask(0x01, &buf, &buf_len) == HAL_OK) {
+        uint16_t sample_count = buf_len / 2;
+        uint16_t n = sample_count < 5u ? sample_count : 5u;
+        printf("Optics[0] ch %d samples %u (laser=%u):\r\n", 0, sample_count, val1);
+        for (uint16_t i = 0; i < n; i++) {
+          uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
+          printf(" (0x%04X) ", sample);
+        }
+      }
+      printf("\r\n");
+
+      if (optics_getBuffer_byMask(0x04, &buf, &buf_len) == HAL_OK) {
+        uint16_t sample_count = buf_len / 2;
+        uint16_t n = sample_count < 5u ? sample_count : 5u;
+        printf("Optics[0] ch %d samples %u (laser=%u):\r\n", 2, sample_count, val2);
+        for (uint16_t i = 0; i < n; i++) {
+          uint16_t sample = ((uint16_t)buf[i * 2] << 8) | buf[i * 2 + 1];
+          printf(" (0x%04X) ", sample);
+        }
+      }
+      printf("\r\n\r\n");
+
+      /* Reset buffers for the next window: clear chip channels 0 and 2. */
+      optics_clearBuffer_byMask(0x05);
+
+      /* Step the laser powers. */
+      val1 += 10; if (val1 > 100) val1 = 0;
+      val2 -= 10; if (val2 < 1)   val2 = 100;
+      (void)optics_startLaser_byMask(0x01, val1);
+      (void)optics_startLaser_byMask(0x02, val2);
+      
+      optics_adcStart(req_mask);
+
+      if (optics_get_active_optics_mask() != 0 && (htim9.Instance->CR1 & TIM_CR1_CEN) == 0)
+      {
+        HAL_TIM_Base_Start_IT(&htim9);
+      }
+
+      
+    }
+
+  }
+
+}
+
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END 5 */
+}
 
 /**
   * @brief  Period elapsed callback in non blocking mode
@@ -566,7 +736,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 1 */
   if (htim->Instance == TIM9) {
 	  /* Defer the SPI work to the main loop. */
+    TRACE1_HIGH();
     (void)optics_adcReadSamples(0);
+    TRACE1_LOW();
   }
 
   /* USER CODE END Callback 1 */

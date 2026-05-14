@@ -65,6 +65,8 @@ void Error_Handler(void);
 #define ADC_CS_GPIO_Port GPIOA
 #define LD1_Pin GPIO_PIN_0
 #define LD1_GPIO_Port GPIOB
+#define TRACE1_Pin GPIO_PIN_0
+#define TRACE1_GPIO_Port GPIOG
 #define LD3_Pin GPIO_PIN_14
 #define LD3_GPIO_Port GPIOB
 #define STLK_RX_Pin GPIO_PIN_8
@@ -89,6 +91,8 @@ void Error_Handler(void);
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define TRACE2_Pin GPIO_PIN_1
+#define TRACE2_GPIO_Port GPIOD
 #define DAC_CS_Pin GPIO_PIN_4
 #define DAC_CS_GPIO_Port GPIOB
 #define LD2_Pin GPIO_PIN_7

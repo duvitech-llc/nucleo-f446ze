@@ -255,7 +255,7 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 	if (st != HAL_OK) return st;
 
 	const uint8_t expected = dev->channel_count;
-	const int max_poll = 200;   /* ~200 * 200 us = 40 ms total budget */
+	const int max_poll = 10;   /* 40us total budget */
 
 	/* captured_mask / want_mask are indexed by the RAW MCP3462 channel id
 	 * (CH0 = bit 0, CH1 = bit 1, ... CH7 = bit 7). This matches the
@@ -272,7 +272,7 @@ HAL_StatusTypeDef optics_adcReadSamples(int optic_index) {
 	for (int i = 0; i < max_poll && captured_mask != want_mask; i++) {
 		st = MCP3462_ReadScanSample(&dev->adc_handle, &ch_id, &code32);
 		if (st == HAL_BUSY) {
-			delay_us(50);
+			delay_us(1);
 			continue;
 		}
 		if (st != HAL_OK) {
