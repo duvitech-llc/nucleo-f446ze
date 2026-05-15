@@ -606,11 +606,11 @@ void StartOpticsTask(void *argument)
       uint8_t *buf = NULL;
       uint16_t buf_len = 0;
 
-      optics_adcStop(req_mask);
-      if (optics_get_active_optics_mask() == 0)
-      {
-        HAL_TIM_Base_Stop_IT(&htim9);
-      }
+      /* Wait for TIM9 ISR to finish, giving a safe ~2 ms window for readout. */
+      tim9_sample_flag = 0;
+      while (!tim9_sample_flag) {}
+      tim9_sample_flag = 0;
+
       HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
       TRACE2_HIGH();
       if (optics_getBuffer_byMask(0x01, &buf, &buf_len) == HAL_OK) {
@@ -645,12 +645,6 @@ void StartOpticsTask(void *argument)
       (void)optics_startLaser_byMask(0x02, val2);
       
       TRACE2_LOW();
-      optics_adcStart(req_mask);
-
-      if (optics_get_active_optics_mask() != 0 && (htim9.Instance->CR1 & TIM_CR1_CEN) == 0)
-      {
-        HAL_TIM_Base_Start_IT(&htim9);
-      }
 
       
     }
@@ -702,6 +696,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     TRACE1_HIGH();
     (void)optics_adcReadSamples(0);
     TRACE1_LOW();
+    tim9_sample_flag = 1;
   }
 
   /* USER CODE END Callback 1 */

@@ -152,7 +152,7 @@ static HAL_StatusTypeDef initialize_optic_device(int optic_index) {
 	}
 	MCP3462_ScanConfig scan_cfg = {
 		.scan_mask    = scan_mask,
-		.dly_clocks   = 4,   // no extra delay between channels
+		.dly_clocks   = 0,   // no extra delay between channels
 		.timer_clocks = 0    // no extra delay between SCAN cycles
 	};
 
