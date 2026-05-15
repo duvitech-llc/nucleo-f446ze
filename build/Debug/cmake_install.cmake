@@ -1,8 +1,8 @@
-# Install script for directory: D:/CURRENT-WORK/duvitech/nucleo-f446ze
+# Install script for directory: /home/gvigelet/CurrentWork/Duvitech/nucleo-f446ze
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/nucleo-f446ze")
+  set(CMAKE_INSTALL_PREFIX "/usr/local")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -34,18 +34,18 @@ endif()
 
 # Set path to fallback-tool for dependency-resolution.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Arm_Toolchains/arm-none-eabi/13.3 rel1/bin/arm-none-eabi-objdump.exe")
+  set(CMAKE_OBJDUMP "/opt/toolchains/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-objdump")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("D:/CURRENT-WORK/duvitech/nucleo-f446ze/build/Debug/cmake/stm32cubemx/cmake_install.cmake")
+  include("/home/gvigelet/CurrentWork/Duvitech/nucleo-f446ze/build/Debug/cmake/stm32cubemx/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "D:/CURRENT-WORK/duvitech/nucleo-f446ze/build/Debug/install_local_manifest.txt"
+  file(WRITE "/home/gvigelet/CurrentWork/Duvitech/nucleo-f446ze/build/Debug/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()
 if(CMAKE_INSTALL_COMPONENT)
@@ -61,6 +61,6 @@ else()
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "D:/CURRENT-WORK/duvitech/nucleo-f446ze/build/Debug/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "/home/gvigelet/CurrentWork/Duvitech/nucleo-f446ze/build/Debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

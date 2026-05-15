@@ -13,7 +13,7 @@
             "problemMatcher": [],
             "options": {
                 "env": {
-                    "PATH": ":${env:PATH}"
+                    "PATH": "/opt/toolchains/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin:${env:PATH}"
                 }
             }
         },
@@ -44,7 +44,7 @@
             ],
             "options": {
                 "env": {
-                    "PATH": ":${env:PATH}"
+                    "PATH": "/opt/toolchains/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin:${env:PATH}"
                 }
             }
         },
@@ -62,7 +62,7 @@
             "problemMatcher": [],
             "options": {
                 "env": {
-                    "PATH": ":${env:PATH}"
+                    "PATH": "/opt/toolchains/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin:${env:PATH}"
                 }
             }
         },
@@ -78,7 +78,7 @@
             "problemMatcher": [],
             "options": {
                 "env": {
-                    "PATH": ":${env:PATH}"
+                    "PATH": "/opt/toolchains/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin:${env:PATH}"
                 }
             }
         },
@@ -105,7 +105,7 @@
             ],
             "options": {
                 "env": {
-                    "PATH": ":${env:PATH}"
+                    "PATH": "/opt/toolchains/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin:${env:PATH}"
                 }
             }
         },
@@ -155,8 +155,8 @@
         {
             "label": "Kill OpenOCD",
             "type": "shell",
-            "command": "taskkill",
-            "args": ["/IM","openocd.exe","/F"],
+            "command": "pkill",
+            "args": ["-f","openocd"],
             "problemMatcher": []
         }
     ]

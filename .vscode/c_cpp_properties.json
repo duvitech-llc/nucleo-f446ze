@@ -9,7 +9,7 @@
                 "STM32F446xx",
                 "USE_HAL_DRIVER"
             ],
-            "compilerPath": "arm-none-eabi-gcc",
+            "compilerPath": "/opt/toolchains/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gcc",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-arm",
