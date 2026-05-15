@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/gvigelet/CurrentWork/Duvitech/nucleo-f446ze/build/Debug/cmake_install.cmake",
-		"/home/gvigelet/CurrentWork/Duvitech/nucleo-f446ze/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
